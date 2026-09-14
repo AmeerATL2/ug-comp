@@ -13,21 +13,30 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 const publicDir = path.join(__dirname, 'public');
 const uploadDir = path.join(publicDir, 'uploads');
-fs.mkdirSync(uploadDir, { recursive: true });
+const coverDir = path.join(uploadDir, 'covers');
+fs.mkdirSync(coverDir, { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: uploadDir,
+  destination: (req, file, cb) => cb(null, file.fieldname === 'cover' ? coverDir : uploadDir),
   filename: (req, file, cb) => {
     const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${Date.now()}-${safe}`);
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 7)}-${safe}`);
   }
 });
+
 const upload = multer({
   storage,
   limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'audio/mpeg' || file.originalname.toLowerCase().endsWith('.mp3')) cb(null, true);
-    else cb(new Error('Only MP3 files are allowed.'));
+    if (file.fieldname === 'song') {
+      return (file.mimetype === 'audio/mpeg' || file.originalname.toLowerCase().endsWith('.mp3'))
+        ? cb(null, true) : cb(new Error('Only MP3 files are allowed for songs.'));
+    }
+    if (file.fieldname === 'cover') {
+      return file.mimetype.startsWith('image/')
+        ? cb(null, true) : cb(new Error('Cover art must be an image.'));
+    }
+    cb(new Error('Unexpected upload field.'));
   }
 });
 
@@ -40,44 +49,140 @@ const state = {
   playing: false,
   startedAt: null,
   pausedAt: 0,
-  hostId: null
+  hostId: null,
+  battle: { championId: null, challengerId: null },
+  voting: false,
+  votingEndsAt: null,
+  votes: {},
+  voterSockets: new Set(),
+  round: 0,
+  chat: []
 };
 
-function viewerCount() {
-  return io.engine.clientsCount;
+const MAX_CONTESTANTS = 10;
+const MAX_VIEWERS = 40;
+const VOTE_SECONDS = 30;
+
+function viewerCount() { return io.engine.clientsCount; }
+function contestantById(id) { return state.contestants.find(c => c.id === id); }
+function publicContestant(c) {
+  return { id: c.id, name: c.name, social: c.social, song: c.song, url: c.url, coverUrl: c.coverUrl || null, order: c.order, status: c.status, wins: c.wins, losses: c.losses };
+}
+function voteTotals() {
+  const ids = [state.battle.championId, state.battle.challengerId].filter(Boolean);
+  const a = ids[0] ? (state.votes[ids[0]] || 0) : 0;
+  const b = ids[1] ? (state.votes[ids[1]] || 0) : 0;
+  const total = a + b;
+  return { total, votes: state.votes, percentages: { [ids[0] || 'none']: total ? Math.round(a / total * 100) : 0, [ids[1] || 'none']: total ? Math.round(b / total * 100) : 0 } };
 }
 function publicState() {
   return {
-    contestants: state.contestants,
+    contestants: state.contestants.map(publicContestant),
     current: state.current,
     playing: state.playing,
     startedAt: state.startedAt,
     pausedAt: state.pausedAt,
     viewers: viewerCount(),
-    maxViewers: 35,
-    maxContestants: 10
+    maxViewers: MAX_VIEWERS,
+    maxContestants: MAX_CONTESTANTS,
+    battle: state.battle,
+    voting: state.voting,
+    votingEndsAt: state.votingEndsAt,
+    voteData: voteTotals(),
+    round: state.round,
+    chat: state.chat.slice(-60),
+    competitionComplete: state.contestants.length >= 2 && state.contestants.filter(c => c.status !== 'OUT').length === 1 && state.round >= state.contestants.length - 1
   };
 }
 function broadcast() { io.emit('state', publicState()); }
 
-app.post('/api/upload', upload.single('song'), (req, res) => {
+function setBattle(championId, challengerId) {
+  state.battle = { championId, challengerId };
+  state.current = championId;
+  state.playing = false;
+  state.startedAt = null;
+  state.pausedAt = 0;
+  state.voting = false;
+  state.votingEndsAt = null;
+  state.votes = {};
+  if (championId) state.votes[championId] = 0;
+  if (challengerId) state.votes[challengerId] = 0;
+}
+
+function finishVoting() {
+  if (!state.voting) return;
+  state.voting = false;
+  state.votingEndsAt = null;
+
+  const champion = contestantById(state.battle.championId);
+  const challenger = contestantById(state.battle.challengerId);
+  if (!champion || !challenger) { broadcast(); return; }
+
+  const championVotes = state.votes[champion.id] || 0;
+  const challengerVotes = state.votes[challenger.id] || 0;
+  // Ties go to the current champion.
+  const winner = challengerVotes > championVotes ? challenger : champion;
+  const loser = winner.id === champion.id ? challenger : champion;
+  winner.wins += 1;
+  loser.losses += 1;
+  loser.status = 'OUT';
+
+  const next = state.contestants.find(c => c.status === 'WAITING' && c.id !== winner.id);
+  if (next) {
+    next.status = 'BATTLE';
+    state.round += 1;
+    setBattle(winner.id, next.id);
+  } else {
+    winner.status = 'CHAMPION';
+    state.round = Math.max(state.round, state.contestants.length - 1);
+    setBattle(winner.id, null);
+  }
+  state.voterSockets.clear();
+  broadcast();
+}
+
+app.post('/api/upload', upload.fields([
+  { name: 'song', maxCount: 1 },
+  { name: 'cover', maxCount: 1 }
+]), (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'MP3 required.' });
-    if (state.contestants.length >= 10) {
-      fs.unlinkSync(req.file.path);
+    const songFile = req.files?.song?.[0];
+    const coverFile = req.files?.cover?.[0];
+    if (!songFile) return res.status(400).json({ error: 'MP3 required.' });
+    if (state.contestants.length >= MAX_CONTESTANTS) {
+      fs.unlinkSync(songFile.path);
+      if (coverFile) fs.unlinkSync(coverFile.path);
       return res.status(409).json({ error: 'The 10 contestant spots are full.' });
     }
+
     const name = String(req.body.name || 'Contestant').trim().slice(0, 30) || 'Contestant';
+    const social = String(req.body.social || '').trim().slice(0, 40);
     const contestant = {
       id: Math.random().toString(36).slice(2, 10),
       name,
-      song: req.file.originalname,
-      url: `/uploads/${req.file.filename}`
+      social,
+      song: songFile.originalname,
+      url: `/uploads/${songFile.filename}`,
+      coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : null,
+      order: state.contestants.length + 1,
+      status: 'WAITING',
+      wins: 0,
+      losses: 0
     };
     state.contestants.push(contestant);
-    if (!state.current) state.current = contestant.id;
+
+    if (state.contestants.length === 1) {
+      contestant.status = 'CHAMPION';
+      setBattle(contestant.id, null);
+    } else if (state.contestants.length === 2 && !state.battle.challengerId) {
+      contestant.status = 'BATTLE';
+      const first = state.contestants[0];
+      first.status = 'BATTLE';
+      state.round = 1;
+      setBattle(first.id, contestant.id);
+    }
     broadcast();
-    res.json({ contestant });
+    res.json({ contestant: publicContestant(contestant) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -86,15 +191,22 @@ app.post('/api/upload', upload.single('song'), (req, res) => {
 app.get('/api/state', (req, res) => res.json(publicState()));
 
 io.on('connection', socket => {
+  // Hard viewer cap. Existing connected clients are not kicked when the cap changes.
+  if (viewerCount() > MAX_VIEWERS) {
+    socket.emit('capacity', { message: 'UG COMP is full right now. Try again later.' });
+    return socket.disconnect(true);
+  }
+
   socket.emit('state', publicState());
   if (!state.hostId) { state.hostId = socket.id; socket.emit('host', true); }
+  broadcast();
 
   socket.on('claim-host', () => {
     if (!state.hostId) { state.hostId = socket.id; socket.emit('host', true); }
   });
 
   socket.on('select', id => {
-    if (socket.id !== state.hostId || !state.contestants.some(c => c.id === id)) return;
+    if (socket.id !== state.hostId || !contestantById(id)) return;
     state.current = id;
     state.playing = false;
     state.startedAt = null;
@@ -111,7 +223,7 @@ io.on('connection', socket => {
 
   socket.on('pause', elapsed => {
     if (socket.id !== state.hostId) return;
-    state.pausedAt = Number(elapsed) || 0;
+    state.pausedAt = Math.max(0, Number(elapsed) || 0);
     state.playing = false;
     state.startedAt = null;
     broadcast();
@@ -124,15 +236,100 @@ io.on('connection', socket => {
     broadcast();
   });
 
+  socket.on('start-vote', () => {
+    if (socket.id !== state.hostId || state.voting) return;
+    if (!state.battle.championId || !state.battle.challengerId) return;
+    state.voting = true;
+    state.votingEndsAt = Date.now() + VOTE_SECONDS * 1000;
+    state.votes = { [state.battle.championId]: 0, [state.battle.challengerId]: 0 };
+    state.voterSockets.clear();
+    broadcast();
+    setTimeout(() => finishVoting(), VOTE_SECONDS * 1000 + 100);
+  });
+
+  socket.on('end-vote', () => {
+    if (socket.id !== state.hostId) return;
+    finishVoting();
+  });
+
+  socket.on('vote', contestantId => {
+    if (!state.voting || state.voterSockets.has(socket.id)) return;
+    if (![state.battle.championId, state.battle.challengerId].includes(contestantId)) return;
+    state.voterSockets.add(socket.id);
+    state.votes[contestantId] = (state.votes[contestantId] || 0) + 1;
+    broadcast();
+  });
+
+  socket.on('remove-contestant', id => {
+    if (socket.id !== state.hostId) return;
+    const index = state.contestants.findIndex(c => c.id === id);
+    if (index === -1) return;
+    const removed = state.contestants[index];
+
+    // Delete the uploaded song/cover so a removed submission does not stay on the server.
+    for (const url of [removed.url, removed.coverUrl]) {
+      if (!url) continue;
+      const fullPath = path.join(publicDir, url.replace(/^\//, ''));
+      if (fs.existsSync(fullPath)) {
+        try { fs.unlinkSync(fullPath); } catch (_) {}
+      }
+    }
+
+    state.contestants.splice(index, 1);
+    if (state.current === id) {
+      state.current = null;
+      state.playing = false;
+      state.startedAt = null;
+      state.pausedAt = 0;
+    }
+    if (state.voting) {
+      state.voting = false;
+      state.votingEndsAt = null;
+      state.votes = {};
+      state.voterSockets.clear();
+    }
+
+    // Rebuild battle positions from remaining contestants.
+    state.battle = { championId: null, challengerId: null };
+    for (const c of state.contestants) c.status = 'WAITING';
+    if (state.contestants[0]) {
+      state.contestants[0].status = 'CHAMPION';
+      state.battle.championId = state.contestants[0].id;
+    }
+    if (state.contestants[1]) {
+      state.contestants[1].status = 'BATTLE';
+      state.battle.challengerId = state.contestants[1].id;
+      state.round = Math.max(1, state.contestants.length > 1 ? 1 : 0);
+    } else {
+      state.round = 0;
+    }
+    setBattle(state.battle.championId, state.battle.challengerId);
+    io.emit('contestant-removed', id);
+    broadcast();
+  });
+
+  socket.on('chat', message => {
+    const text = String(message || '').trim().slice(0, 180);
+    if (!text) return;
+    const item = { id: Math.random().toString(36).slice(2, 10), text, at: Date.now(), guest: `Guest ${socket.id.slice(-4)}` };
+    state.chat.push(item);
+    if (state.chat.length > 100) state.chat.shift();
+    broadcast();
+  });
+
   socket.on('disconnect', () => {
+    state.voterSockets.delete(socket.id);
     if (socket.id === state.hostId) {
       state.hostId = null;
-      io.sockets.sockets.forEach(s => { if (!state.hostId) { state.hostId = s.id; s.emit('host', true); } });
+      for (const s of io.sockets.sockets.values()) {
+        state.hostId = s.id;
+        s.emit('host', true);
+        break;
+      }
     }
     broadcast();
   });
 });
 
 app.use((err, req, res, next) => res.status(400).json({ error: err.message || 'Upload failed.' }));
-
 server.listen(PORT, HOST, () => console.log(`UG COMP running at http://localhost:${PORT}`));

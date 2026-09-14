@@ -1,8 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/battleHistory/{battleId} {
+    match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /battleHistory/{battleId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
   }
 }

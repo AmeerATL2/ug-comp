@@ -105,8 +105,8 @@ function finishVoting() {
 
   io.emit('battle-finished', {
     round: state.round,
-    winner: { id: winner.id, name: winner.name },
-    loser: { id: loser.id, name: loser.name },
+    winner: { id: winner.id, name: winner.name, song: winner.song, ownerUid: winner.ownerUid || null },
+    loser: { id: loser.id, name: loser.name, song: loser.song, ownerUid: loser.ownerUid || null },
     winnerVotes: champion.id === winner.id ? championVotes : challengerVotes,
     loserVotes: champion.id === loser.id ? championVotes : challengerVotes,
     finishedAt: Date.now()
@@ -129,9 +129,10 @@ app.post('/api/upload', upload.fields([{ name: 'song', maxCount: 1 }, { name: 'c
     }
     const name = String(req.body.name || 'Contestant').trim().slice(0, 30) || 'Contestant';
     const social = String(req.body.social || '').trim().slice(0, 40);
+    const ownerUid = String(req.body.ownerUid || '').trim().slice(0, 128);
     const contestant = {
       id: Math.random().toString(36).slice(2, 10), name, social, song: songFile.originalname,
-      url: `/uploads/${songFile.filename}`, coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : null,
+      ownerUid, url: `/uploads/${songFile.filename}`, coverUrl: coverFile ? `/uploads/covers/${coverFile.filename}` : null,
       order: state.contestants.length + 1, status: 'WAITING', wins: 0, losses: 0
     };
     state.contestants.push(contestant);

@@ -9,100 +9,55 @@
 <body>
 <header class="topbar">
   <div class="brand"><span>UG</span> COMP</div>
-  <div class="live"><i></i> LIVE <b id="viewerCount">0</b>/40</div>
+  <div class="top-actions">
+    <div class="live"><i></i> LIVE <b id="viewerCount">0</b>/40</div>
+    <button id="accountBtn" class="account-mini">LOGIN</button>
+  </div>
 </header>
 <main>
-  <section class="hero">
-    <div>
-      <p class="eyebrow">UNDERGROUND COMPETITION</p>
-      <h1>YOUR SONG.<br><em>YOUR MOMENT.</em></h1>
-      <p class="sub">10 contestants. 40 live listeners. One song battle at a time.</p>
+  <section id="accountPanel" class="card account-panel">
+    <div class="section-head"><h2>UG COMP ACCOUNT</h2><span>OPTIONAL</span></div>
+    <div id="loggedOutView" class="account-body">
+      <div>
+        <p class="account-title">Save your UG COMP identity.</p>
+        <p class="muted">Google login is optional. You can still watch, chat, vote, and enter without an account.</p>
+      </div>
+      <button id="googleLoginBtn" class="google-btn"><span class="google-g">G</span> CONTINUE WITH GOOGLE</button>
+      <button id="guestBtn" class="ghost-btn">CONTINUE AS GUEST</button>
+      <p id="authMsg" class="muted"></p>
     </div>
+    <div id="loggedInView" class="account-body hidden">
+      <div class="profile-row">
+        <img id="profilePhoto" class="profile-photo hidden" alt="Profile photo">
+        <div><p id="profileName" class="account-title">Logged in</p><p id="profileEmail" class="muted"></p></div>
+      </div>
+      <div class="account-actions"><button id="historyBtn" class="ghost-btn">BATTLE HISTORY</button><button id="signOutBtn" class="danger small">SIGN OUT</button></div>
+      <p id="historyHint" class="muted">Your completed UG COMP battle history is saved to this account.</p>
+    </div>
+  </section>
+
+  <section class="hero">
+    <div><p class="eyebrow">UNDERGROUND COMPETITION</p><h1>YOUR SONG.<br><em>YOUR MOMENT.</em></h1><p class="sub">10 contestants. 40 live listeners. One song battle at a time.</p></div>
     <div class="badge">UG<br><small>COMP</small></div>
   </section>
-
   <section class="stage card">
     <div class="stage-head"><span>LIVE STAGE</span><span id="status">WAITING</span></div>
-    <div class="now">
-      <div id="cover" class="cover">UG<br>COMP</div>
-      <div class="track">
-        <p class="label">NOW PLAYING</p>
-        <h2 id="nowName">No song loaded</h2>
-        <p id="nowSocial">@social</p>
-        <p id="nowSong">Waiting for the first contestant…</p>
-        <audio id="audio" preload="auto"></audio>
-        <div class="controls">
-          <button id="playBtn">▶ Play</button>
-          <button id="pauseBtn">Ⅱ Pause</button>
-          <input id="seek" type="range" min="0" max="100" value="0" />
-          <span id="time">0:00</span>
-        </div>
-      </div>
-    </div>
+    <div class="now"><div id="cover" class="cover">UG<br>COMP</div><div class="track"><p class="label">NOW PLAYING</p><h2 id="nowName">No song loaded</h2><p id="nowSocial">@social</p><p id="nowSong">Waiting for the first contestant…</p><audio id="audio" preload="auto"></audio><div class="controls"><button id="playBtn">▶ Play</button><button id="pauseBtn">Ⅱ Pause</button><input id="seek" type="range" min="0" max="100" value="0" /><span id="time">0:00</span></div></div></div>
   </section>
-
-  <section class="battle card">
-    <div class="section-head"><h2>LIVE VOTE</h2><span id="roundLabel">ROUND 0</span></div>
-    <div class="battle-grid">
-      <div id="fighterA" class="fighter"><div class="fighter-cover">UG</div><div><span class="tag">CHAMPION</span><h3>Waiting</h3><p>@social</p></div></div>
-      <div class="vs">VS</div>
-      <div id="fighterB" class="fighter"><div class="fighter-cover">UG</div><div><span class="tag">CHALLENGER</span><h3>Waiting</h3><p>@social</p></div></div>
-    </div>
-    <div id="votePanel" class="vote-panel hidden">
-      <div class="vote-top"><strong>VOTE NOW</strong><strong id="countdown">0:30</strong></div>
-      <div class="vote-choice"><div class="vote-name"><span id="voteNameA">A</span><span id="votePctA">0%</span></div><div class="bar"><div id="voteBarA"></div></div><button id="voteBtnA" class="vote-btn">VOTE</button></div>
-      <div class="vote-choice"><div class="vote-name"><span id="voteNameB">B</span><span id="votePctB">0%</span></div><div class="bar"><div id="voteBarB"></div></div><button id="voteBtnB" class="vote-btn">VOTE</button></div>
-      <p id="voteMsg" class="muted">One vote per connected viewer.</p>
-    </div>
-    <div id="notVoting" class="not-voting">Voting has not started yet.</div>
-  </section>
-
-  <div class="grid">
-    <section class="card contestants">
-      <div class="section-head"><h2>CONTESTANTS</h2><span id="slots">0/10</span></div>
-      <div id="contestantList" class="list"><p class="muted">No contestants yet.</p></div>
-    </section>
-
-    <section class="card join">
-      <div class="section-head"><h2>ENTER THE COMP</h2><span>MP3 ONLY</span></div>
-      <form id="uploadForm">
-        <label>Contestant name<input name="name" maxlength="30" placeholder="Your stage name" required /></label>
-        <label>Social handle <small>optional</small><input name="social" maxlength="40" placeholder="@perc" /></label>
-        <label>Song file<input name="song" type="file" accept="audio/mpeg,.mp3" required /></label>
-        <label>Cover art <small>optional</small><input name="cover" type="file" accept="image/*" /></label>
-        <button class="primary" type="submit">UPLOAD MY SONG</button>
-        <p id="uploadMsg" class="muted">First come, first served. 10 spots max.</p>
-      </form>
-    </section>
-  </div>
-
-  <section class="card leaderboard">
-    <div class="section-head"><h2>CENTRAL SCOREBOARD</h2><span>SONG BATTLE</span></div>
-    <div class="table-wrap"><table><thead><tr><th>#</th><th>CONTESTANT</th><th>SOCIAL</th><th>W</th><th>L</th><th>STATUS</th><th></th></tr></thead><tbody id="scoreboard"></tbody></table></div>
-  </section>
-
-  <section class="card chat-card">
-    <div class="section-head"><h2>LIVE CHAT</h2><span>EVERYONE</span></div>
-    <div id="chatMessages" class="chat-messages"></div>
-    <form id="chatForm" class="chat-form"><input id="chatInput" maxlength="180" placeholder="Say something…" autocomplete="off" /><button>POST</button></form>
-  </section>
-
-  <section id="hostPanel" class="card host hidden">
-    <div class="section-head"><h2>HOST CONTROL</h2><span>YOU ARE HOST</span></div>
-    <p class="muted">Control the song, start/end voting, and manage the current battle.</p>
-    <div class="host-actions"><button id="startVoteBtn" class="primary small">START 30s VOTE</button><button id="endVoteBtn" class="danger small">END VOTE</button></div>
-    <div id="hostButtons" class="host-buttons"></div>
-  </section>
-
-  <section class="rules">
-    <h2>HOW UG COMP WORKS</h2>
-    <div><b>01</b><span>Up to 10 contestants upload one MP3, with optional social handle and cover art.</span></div>
-    <div><b>02</b><span>The first submission becomes the champion and the next submission challenges them.</span></div>
-    <div><b>03</b><span>After each 30-second vote, the winner stays and the next contestant enters. The loser is out.</span></div>
-    <div><b>04</b><span>Up to 40 people can watch the live stage, chat, and vote.</span></div>
-  </section>
+  <section class="card vfx-card"><div class="section-head"><h2>LIVE VFX</h2><span>$1 EACH</span></div><div id="vfxIndicator" class="vfx-indicator">NO VFX PLAYING</div><p class="muted">Send a sound/reaction while the current song is playing. Purchases use card or Cash App Pay when payments are enabled.</p><div class="vfx-grid"><button data-vfx="fart">💨 FART <small>$1</small></button><button data-vfx="boo">📣 BOOO <small>$1</small></button><button data-vfx="off">🛑 TURN THIS OFF <small>$1</small></button><button data-vfx="trash">🗑️ THIS IS TRASH <small>$1</small></button></div><p class="muted tiny">VFX are reactions only and do not affect voting or competition results.</p></section>
+  <section class="battle card"><div class="section-head"><h2>LIVE VOTE</h2><span id="roundLabel">ROUND 0</span></div><div class="battle-grid"><div id="fighterA" class="fighter"><div class="fighter-cover">UG</div><div><span class="tag">CHAMPION</span><h3>Waiting</h3><p>@social</p></div></div><div class="vs">VS</div><div id="fighterB" class="fighter"><div class="fighter-cover">UG</div><div><span class="tag">CHALLENGER</span><h3>Waiting</h3><p>@social</p></div></div></div><div id="votePanel" class="vote-panel hidden"><div class="vote-top"><strong>VOTE NOW</strong><strong id="countdown">0:30</strong></div><div class="vote-choice"><div class="vote-name"><span id="voteNameA">A</span><span id="votePctA">0%</span></div><div class="bar"><div id="voteBarA"></div></div><button id="voteBtnA" class="vote-btn">VOTE</button></div><div class="vote-choice"><div class="vote-name"><span id="voteNameB">B</span><span id="votePctB">0%</span></div><div class="bar"><div id="voteBarB"></div></div><button id="voteBtnB" class="vote-btn">VOTE</button></div><p id="voteMsg" class="muted">One vote per connected viewer.</p></div><div id="notVoting" class="not-voting">Voting has not started yet.</div></section>
+  <div class="grid"><section class="card contestants"><div class="section-head"><h2>CONTESTANTS</h2><span id="slots">0/10</span></div><div id="contestantList" class="list"><p class="muted">No contestants yet.</p></div></section><section class="card join"><div class="section-head"><h2>ENTER THE COMP</h2><span>MP3 ONLY</span></div><form id="uploadForm"><label>Contestant name<input name="name" maxlength="30" placeholder="Your stage name" required /></label><label>Social handle <small>optional</small><input name="social" maxlength="40" placeholder="@perc" /></label><label>Song file<input name="song" type="file" accept="audio/mpeg,.mp3" required /></label><label>Cover art <small>optional</small><input name="cover" type="file" accept="image/*" /></label><button class="primary" type="submit">UPLOAD MY SONG</button><p id="uploadMsg" class="muted">First come, first served. 10 spots max.</p></form></section></div>
+  <section class="card leaderboard"><div class="section-head"><h2>CENTRAL SCOREBOARD</h2><span>SONG BATTLE</span></div><div class="table-wrap"><table><thead><tr><th>#</th><th>CONTESTANT</th><th>SOCIAL</th><th>W</th><th>L</th><th>STATUS</th><th></th></tr></thead><tbody id="scoreboard"></tbody></table></div></section>
+  <section class="card chat-card"><div class="section-head"><h2>LIVE CHAT</h2><span>EVERYONE</span></div><div id="chatMessages" class="chat-messages"></div><form id="chatForm" class="chat-form"><input id="chatInput" maxlength="180" placeholder="Say something…" autocomplete="off" /><button>POST</button></form><label class="chat-privacy"><input type="checkbox" id="hideChatIdentity"> Hide my chat identity</label></section>
+  <section id="hostPanel" class="card host hidden"><div class="section-head"><h2>HOST CONTROL</h2><span>YOU ARE HOST</span></div><p class="muted">Control the song, start/end voting, and manage the current battle.</p><div class="host-actions"><button id="startVoteBtn" class="primary small">START 30s VOTE</button><button id="endVoteBtn" class="danger small">END VOTE</button></div><div id="hostButtons" class="host-buttons"></div></section>
+  <section class="rules"><h2>HOW UG COMP WORKS</h2><div><b>01</b><span>Up to 10 contestants upload one MP3, with optional social handle and cover art.</span></div><div><b>02</b><span>The first submission becomes the champion and the next submission challenges them.</span></div><div><b>03</b><span>After each 30-second vote, the winner stays and the next contestant enters. The loser is out.</span></div><div><b>04</b><span>Up to 40 people can watch the live stage, chat, and vote.</span></div></section>
 </main>
+<div id="historyModal" class="modal hidden"><div class="modal-box"><div class="section-head"><h2>BATTLE HISTORY</h2><button id="historyClose" class="ghost-btn small">CLOSE</button></div><div id="historyBody"><p class="muted">Loading history…</p></div></div></div>
 <footer>UG COMP — UNDERGROUND COMPETITION</footer>
+<script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore-compat.js"></script>
+<script src="/firebase-config.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/app.js"></script>
 </body>

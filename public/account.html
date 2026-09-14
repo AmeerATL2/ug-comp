@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UG COMP — Account</title><link rel="stylesheet" href="/style.css"></head>
+<body class="account-page"><header class="topbar"><a class="brand brand-link" href="/">UG <span>COMP</span></a><nav class="nav-links"><a href="/">HOME</a><a class="active" href="/account.html">ACCOUNT</a></nav></header>
+<main class="account-wrap">
+<section class="card profile-card reveal"><div class="section-head"><h2>PROFILE</h2><span>GOOGLE ACCOUNT</span></div><div class="profile-big"><img id="photo" class="profile-photo large hidden" alt=""><div><p class="eyebrow">YOUR NAME</p><h1 id="name">UG COMP</h1><p id="email" class="muted"></p></div></div><div class="account-actions"><button id="editName" class="ghost-btn">CHANGE NAME</button><button id="signOut" class="danger small">SIGN OUT</button></div><div id="editBox" class="edit-box hidden"><input id="nameInput" class="big-input" maxlength="24" placeholder="Your name"><button id="saveName" class="primary">SAVE NAME</button><p id="editMsg" class="muted"></p></div></section>
+<section class="card history-page-card reveal"><div class="section-head"><h2>BATTLE HISTORY</h2><span>YOUR RECORD</span></div><div id="historyBody" class="history-list"><p class="muted">Loading history…</p></div></section>
+</main>
+<script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore-compat.js"></script><script src="/firebase-config.js"></script><script src="/auth.js"></script>
+<script>
+const body=document.getElementById('historyBody');
+function renderProfile(u,n){ document.getElementById('name').textContent=n||'UG COMP User'; document.getElementById('email').textContent=u.email||''; if(u.photoURL){const p=document.getElementById('photo');p.src=u.photoURL;p.classList.remove('hidden');} }
+async function loadHistory(){ try { const rows=await UGAuth.getBattleHistory(); if(!rows.length){body.innerHTML='<div class="empty-state"><b>No battles yet.</b><span>Your wins and losses will appear here after you compete.</span></div>';return;} body.innerHTML=rows.map(x=>`<div class="history-card"><div><strong>${x.result==='WIN'?'🏆 WIN':'❌ LOSS'}</strong><h3>${escapeHtml(x.song||'Unknown song')}</h3><p>${escapeHtml(x.result==='WIN' ? 'Beat ' + (x.opponent||'opponent') : 'Lost to ' + (x.opponent||'opponent'))}</p></div><div class="history-stats"><b>${x.myVotes||0}-${x.opponentVotes||0}</b><span>Round ${x.round||0}</span><small>${formatDate(x.finishedAt)}</small></div></div>`).join(''); } catch(e){ body.innerHTML='<p class="muted">Could not load your history right now.</p>'; } }
+function formatDate(v){ if(!v) return ''; const d=v.seconds?new Date(v.seconds*1000):new Date(v); return isNaN(d)?'':d.toLocaleDateString(); }
+function escapeHtml(x){return String(x??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+UGAuth.ready.then(async()=>{if(!UGAuth.user){location.replace('/login.html');return;} if(!UGAuth.name){location.replace('/setup-name.html');return;} renderProfile(UGAuth.user,UGAuth.name); await loadHistory();});
+document.getElementById('signOut').onclick=async()=>{await UGAuth.signOut();location.href='/';};
+document.getElementById('editName').onclick=()=>document.getElementById('editBox').classList.toggle('hidden');
+document.getElementById('saveName').onclick=async()=>{const msg=document.getElementById('editMsg');try{const n=await UGAuth.saveName(document.getElementById('nameInput').value);document.getElementById('name').textContent=n;document.getElementById('editBox').classList.add('hidden');}catch(e){msg.textContent=e.message;}};
+</script></body></html>

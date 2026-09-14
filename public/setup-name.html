@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UG COMP — Your Name</title><link rel="stylesheet" href="/style.css"></head>
+<body class="account-page"><header class="topbar"><a class="brand brand-link" href="/">UG <span>COMP</span></a></header>
+<main class="center-page"><section class="auth-card card reveal"><div class="name-avatar" id="avatar">UG</div><p class="eyebrow">ONE LAST STEP</p><h1>WHAT'S YOUR NAME?</h1><p class="muted auth-copy">This is the name people will see when you chat on UG COMP. It stays saved to your account.</p><input id="nameInput" class="big-input" maxlength="24" placeholder="Enter your name" autocomplete="nickname"><button id="continueBtn" class="primary wide">CONTINUE</button><p id="nameMsg" class="muted"></p></section></main>
+<script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore-compat.js"></script><script src="/firebase-config.js"></script><script src="/auth.js"></script>
+<script>
+UGAuth.ready.then(() => { if (!UGAuth.user) return location.replace('/login.html'); document.getElementById('nameInput').focus(); });
+document.getElementById('continueBtn').onclick = async () => { const msg=document.getElementById('nameMsg'); msg.textContent='Saving…'; try { await UGAuth.saveName(document.getElementById('nameInput').value); location.href='/'; } catch(e){ msg.textContent=e.message; } };
+document.getElementById('nameInput').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('continueBtn').click(); });
+</script></body></html>

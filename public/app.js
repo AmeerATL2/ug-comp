@@ -4,80 +4,58 @@ const list = document.getElementById('contestantList');
 const hostPanel = document.getElementById('hostPanel');
 const hostButtons = document.getElementById('hostButtons');
 let isHost = false, latest = null, countdownTimer = null, hasVoted = false, chatBottom = true;
-let currentUser = null, firebaseReady = false, db = null, hiddenChatIdentity = false;
+let hiddenChatIdentity = false;
 
-// ---------- Firebase account + battle history ----------
-try {
-  if (window.UG_FIREBASE_CONFIG && !String(window.UG_FIREBASE_CONFIG.apiKey).startsWith('PASTE_')) {
-    firebase.initializeApp(window.UG_FIREBASE_CONFIG);
-    firebaseReady = true;
-    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
-    db = firebase.firestore();
-    firebase.auth().onAuthStateChanged(user => { currentUser = user || null; renderAccount(user); });
+// ---------- Account + saved identity ----------
+let currentUser = null;
+let customChatName = '';
+
+UGAuth.onChange((user, name) => {
+  currentUser = user || null;
+  customChatName = name || '';
+  renderUserNav();
+});
+UGAuth.ready.then(() => {
+  currentUser = UGAuth.user;
+  customChatName = UGAuth.name || '';
+  renderUserNav();
+});
+
+function renderUserNav() {
+  const btn = document.getElementById('accountNav');
+  const name = document.getElementById('userNavName');
+  if (!btn || !name) return;
+  if (currentUser) {
+    name.textContent = customChatName || currentUser.displayName || 'ACCOUNT';
+    btn.href = '/account.html';
   } else {
-    renderAccount(null, 'Add your Firebase web config to enable Google login and saved history.');
+    name.textContent = 'LOGIN';
+    btn.href = '/login.html';
   }
-} catch (err) { renderAccount(null, 'Firebase login is not configured yet.'); }
-
-function renderAccount(user, message='') {
-  const out = document.getElementById('loggedOutView'), inView = document.getElementById('loggedInView');
-  const btn = document.getElementById('accountBtn'), msg = document.getElementById('authMsg');
-  if (!user) {
-    out.classList.remove('hidden'); inView.classList.add('hidden'); btn.textContent = 'LOGIN';
-    if (message) msg.textContent = message;
-    return;
-  }
-  out.classList.add('hidden'); inView.classList.remove('hidden'); btn.textContent = 'ACCOUNT';
-  document.getElementById('profileName').textContent = user.displayName || 'UG COMP User';
-  document.getElementById('profileEmail').textContent = user.email || '';
-  const photo = document.getElementById('profilePhoto');
-  if (user.photoURL) { photo.src = user.photoURL; photo.classList.remove('hidden'); } else photo.classList.add('hidden');
-  document.getElementById('historyHint').textContent = 'Your completed UG COMP battle history is saved to this account.';
-}
-
-document.getElementById('googleLoginBtn').onclick = async () => {
-  const msg = document.getElementById('authMsg');
-  if (!firebaseReady) { msg.textContent = 'Firebase is not configured yet.'; return; }
-  msg.textContent = 'Opening Google login…';
-  try { await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); msg.textContent = ''; }
-  catch (err) { msg.textContent = err.message || 'Google login failed.'; }
-};
-document.getElementById('guestBtn').onclick = () => {
-  document.getElementById('authMsg').textContent = 'Guest mode: your account is optional. You can still watch, chat, vote, and enter.';
-  document.getElementById('accountPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
-};
-document.getElementById('signOutBtn').onclick = async () => { if (firebaseReady) await firebase.auth().signOut(); };
-document.getElementById('accountBtn').onclick = () => document.getElementById('accountPanel').scrollIntoView({ behavior:'smooth', block:'center' });
-document.getElementById('historyBtn').onclick = openHistory;
-
-document.getElementById('historyClose').onclick = () => document.getElementById('historyModal').classList.add('hidden');
-document.getElementById('historyModal').addEventListener('click', e => { if (e.target.id === 'historyModal') e.currentTarget.classList.add('hidden'); });
-
-async function saveBattleHistory(data) {
-  if (!currentUser || !db) return;
-  const ref = db.collection('users').doc(currentUser.uid).collection('battleHistory').doc();
-  await ref.set({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-}
-async function openHistory() {
-  const modal = document.getElementById('historyModal'), body = document.getElementById('historyBody');
-  modal.classList.remove('hidden');
-  if (!currentUser || !db) { body.innerHTML = '<p class="muted">Sign in with Google to save and view battle history.</p>'; return; }
-  body.innerHTML = '<p class="muted">Loading history…</p>';
-  try {
-    const snap = await db.collection('users').doc(currentUser.uid).collection('battleHistory').orderBy('createdAt','desc').limit(50).get();
-    if (snap.empty) { body.innerHTML = '<p class="muted">No completed battles saved yet.</p>'; return; }
-    body.innerHTML = snap.docs.map(d => {
-      const x = d.data();
-      return `<div class="history-row"><div><strong>Round ${escapeHtml(x.round || 0)}</strong><span>${escapeHtml(x.winner || 'Winner')} beat ${escapeHtml(x.loser || 'Loser')}</span></div><b>${x.winnerVotes || 0}-${x.loserVotes || 0}</b></div>`;
-    }).join('');
-  } catch (e) { body.innerHTML = '<p class="muted">History needs Cloud Firestore enabled and the included security rules.</p>'; }
 }
 
 // ---------- Socket / live stage ----------
 socket.on('host', v => { isHost = !!v; hostPanel.classList.toggle('hidden', !isHost); renderHost(); });
 socket.on('capacity', data => alert(data.message));
 socket.on('state', state => { latest = state; render(state); });
-socket.on('battle-finished', data => saveBattleHistory(data).catch(() => {}));
+socket.on('battle-finished', async data => {
+  if (!currentUser) return;
+  const me = data.winner?.ownerUid === currentUser.uid ? data.winner : (data.loser?.ownerUid === currentUser.uid ? data.loser : null);
+  const opponent = me?.id === data.winner?.id ? data.loser : data.winner;
+  if (!me || !opponent) return;
+  try {
+    await UGAuth.saveBattleHistory({
+      round: data.round || 0,
+      result: me.id === data.winner.id ? 'WIN' : 'LOSS',
+      song: me.song || '',
+      opponent: opponent.name || '',
+      opponentSong: opponent.song || '',
+      myVotes: me.id === data.winner.id ? data.winnerVotes : data.loserVotes,
+      opponentVotes: me.id === data.winner.id ? data.loserVotes : data.winnerVotes,
+      finishedAt: data.finishedAt || Date.now()
+    });
+  } catch (e) { console.warn('Could not save battle history', e); }
+});
 
 document.getElementById('chatMessages').addEventListener('scroll', e => {
   const el = e.currentTarget; chatBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
@@ -138,11 +116,13 @@ document.getElementById('startVoteBtn').onclick = () => { if (isHost) socket.emi
 document.getElementById('endVoteBtn').onclick = () => { if (isHost) socket.emit('end-vote'); };
 socket.on('state', s => { if (!s.voting) hasVoted = false; });
 
-document.getElementById('uploadForm').onsubmit = async e => { e.preventDefault(); const msg = document.getElementById('uploadMsg'), fd = new FormData(e.target); msg.textContent = 'Uploading…'; try { const r = await fetch('/api/upload', { method:'POST', body:fd }); const d = await r.json(); if (!r.ok) throw new Error(d.error); msg.textContent = `Uploaded: ${d.contestant.name}`; e.target.reset(); } catch (err) { msg.textContent = err.message; } };
+document.getElementById('uploadForm').onsubmit = async e => { e.preventDefault(); const msg = document.getElementById('uploadMsg'), fd = new FormData(e.target); msg.textContent = 'Uploading…'; try { if (currentUser) fd.append('ownerUid', currentUser.uid);
+  const r = await fetch('/api/upload', { method:'POST', body:fd }); const d = await r.json(); if (!r.ok) throw new Error(d.error); msg.textContent = `Uploaded: ${d.contestant.name}`; e.target.reset(); } catch (err) { msg.textContent = err.message; } };
 
 document.getElementById('chatForm').onsubmit = e => {
   e.preventDefault(); const input = document.getElementById('chatInput'), text = input.value.trim(); if (!text) return;
-  const identity = currentUser?.displayName || '';
+  const identity = customChatName || '';
+
   socket.emit('chat', { text, identity, hidden: hiddenChatIdentity }); input.value = ''; input.focus();
 };
 

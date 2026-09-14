@@ -9,14 +9,14 @@
 <body>
 <header class="topbar">
   <div class="brand"><span>UG</span> COMP</div>
-  <div class="live"><i></i> LIVE <b id="viewerCount">0</b>/35</div>
+  <div class="live"><i></i> LIVE <b id="viewerCount">0</b>/40</div>
 </header>
 <main>
   <section class="hero">
     <div>
       <p class="eyebrow">UNDERGROUND COMPETITION</p>
       <h1>YOUR SONG.<br><em>YOUR MOMENT.</em></h1>
-      <p class="sub">10 contestants. 35 live listeners. One track at a time.</p>
+      <p class="sub">10 contestants. 40 live listeners. One song battle at a time.</p>
     </div>
     <div class="badge">UG<br><small>COMP</small></div>
   </section>
@@ -24,10 +24,11 @@
   <section class="stage card">
     <div class="stage-head"><span>LIVE STAGE</span><span id="status">WAITING</span></div>
     <div class="now">
-      <div class="cover">UG<br>COMP</div>
+      <div id="cover" class="cover">UG<br>COMP</div>
       <div class="track">
         <p class="label">NOW PLAYING</p>
         <h2 id="nowName">No song loaded</h2>
+        <p id="nowSocial">@social</p>
         <p id="nowSong">Waiting for the first contestant…</p>
         <audio id="audio" preload="auto"></audio>
         <div class="controls">
@@ -40,6 +41,22 @@
     </div>
   </section>
 
+  <section class="battle card">
+    <div class="section-head"><h2>LIVE VOTE</h2><span id="roundLabel">ROUND 0</span></div>
+    <div class="battle-grid">
+      <div id="fighterA" class="fighter"><div class="fighter-cover">UG</div><div><span class="tag">CHAMPION</span><h3>Waiting</h3><p>@social</p></div></div>
+      <div class="vs">VS</div>
+      <div id="fighterB" class="fighter"><div class="fighter-cover">UG</div><div><span class="tag">CHALLENGER</span><h3>Waiting</h3><p>@social</p></div></div>
+    </div>
+    <div id="votePanel" class="vote-panel hidden">
+      <div class="vote-top"><strong>VOTE NOW</strong><strong id="countdown">0:30</strong></div>
+      <div class="vote-choice"><div class="vote-name"><span id="voteNameA">A</span><span id="votePctA">0%</span></div><div class="bar"><div id="voteBarA"></div></div><button id="voteBtnA" class="vote-btn">VOTE</button></div>
+      <div class="vote-choice"><div class="vote-name"><span id="voteNameB">B</span><span id="votePctB">0%</span></div><div class="bar"><div id="voteBarB"></div></div><button id="voteBtnB" class="vote-btn">VOTE</button></div>
+      <p id="voteMsg" class="muted">One vote per connected viewer.</p>
+    </div>
+    <div id="notVoting" class="not-voting">Voting has not started yet.</div>
+  </section>
+
   <div class="grid">
     <section class="card contestants">
       <div class="section-head"><h2>CONTESTANTS</h2><span id="slots">0/10</span></div>
@@ -50,24 +67,39 @@
       <div class="section-head"><h2>ENTER THE COMP</h2><span>MP3 ONLY</span></div>
       <form id="uploadForm">
         <label>Contestant name<input name="name" maxlength="30" placeholder="Your stage name" required /></label>
+        <label>Social handle <small>optional</small><input name="social" maxlength="40" placeholder="@perc" /></label>
         <label>Song file<input name="song" type="file" accept="audio/mpeg,.mp3" required /></label>
+        <label>Cover art <small>optional</small><input name="cover" type="file" accept="image/*" /></label>
         <button class="primary" type="submit">UPLOAD MY SONG</button>
         <p id="uploadMsg" class="muted">First come, first served. 10 spots max.</p>
       </form>
     </section>
   </div>
 
+  <section class="card leaderboard">
+    <div class="section-head"><h2>CENTRAL SCOREBOARD</h2><span>SONG BATTLE</span></div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>CONTESTANT</th><th>SOCIAL</th><th>W</th><th>L</th><th>STATUS</th><th></th></tr></thead><tbody id="scoreboard"></tbody></table></div>
+  </section>
+
+  <section class="card chat-card">
+    <div class="section-head"><h2>LIVE CHAT</h2><span>EVERYONE</span></div>
+    <div id="chatMessages" class="chat-messages"></div>
+    <form id="chatForm" class="chat-form"><input id="chatInput" maxlength="180" placeholder="Say something…" autocomplete="off" /><button>POST</button></form>
+  </section>
+
   <section id="hostPanel" class="card host hidden">
     <div class="section-head"><h2>HOST CONTROL</h2><span>YOU ARE HOST</span></div>
-    <p class="muted">Pick a contestant, then use Play/Pause above. Everyone connected sees the same live state.</p>
+    <p class="muted">Control the song, start/end voting, and manage the current battle.</p>
+    <div class="host-actions"><button id="startVoteBtn" class="primary small">START 30s VOTE</button><button id="endVoteBtn" class="danger small">END VOTE</button></div>
     <div id="hostButtons" class="host-buttons"></div>
   </section>
 
   <section class="rules">
     <h2>HOW UG COMP WORKS</h2>
-    <div><b>01</b><span>Up to 10 contestants upload one MP3.</span></div>
-    <div><b>02</b><span>Up to 35 people can watch the live stage.</span></div>
-    <div><b>03</b><span>The host controls the track and every connected listener follows.</span></div>
+    <div><b>01</b><span>Up to 10 contestants upload one MP3, with optional social handle and cover art.</span></div>
+    <div><b>02</b><span>The first submission becomes the champion and the next submission challenges them.</span></div>
+    <div><b>03</b><span>After each 30-second vote, the winner stays and the next contestant enters. The loser is out.</span></div>
+    <div><b>04</b><span>Up to 40 people can watch the live stage, chat, and vote.</span></div>
   </section>
 </main>
 <footer>UG COMP — UNDERGROUND COMPETITION</footer>
